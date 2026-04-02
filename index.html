@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clean It Ops – Panel Operativo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="ops-styles.css" />
+</head>
+<body>
+
+  <!-- ── LOGIN OVERLAY ─────────────────────────── -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+      <div class="brand-mark-lg">CI</div>
+      <h2>Clean It Ops</h2>
+      <p>Panel operativo de comunicaciones</p>
+      <div class="login-buttons">
+        <button class="btn btn-primary btn-full" id="loginAdminBtn">
+          <span class="btn-icon">🔑</span> Entrar como Admin
+        </button>
+        <button class="btn btn-ghost btn-full" id="loginOperarioBtn">
+          <span class="btn-icon">👷</span> Entrar como Operario
+        </button>
+      </div>
+      <p class="login-note">Admin: puede crear y editar tarjetas. Operario: solo lectura y chat.</p>
+    </div>
+  </div>
+
+  <div class="app-shell" id="appShell" style="display:none">
+
+    <!-- ── SIDEBAR ────────────────────────────── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-inner">
+        <div class="brand">
+          <div class="brand-mark">CI</div>
+          <div class="brand-text">
+            <h1>Clean It Ops</h1>
+            <p>Panel operativo</p>
+          </div>
+          <button class="sidebar-close no-print" id="sidebarClose" aria-label="Cerrar">✕</button>
+        </div>
+
+        <!-- Rol actual -->
+        <div class="sidebar-block">
+          <div class="role-badge" id="roleBadge">
+            <span id="roleIcon">🔑</span>
+            <span id="roleLabel">Admin</span>
+            <button class="role-switch-btn" id="roleSwitchBtn" title="Cambiar rol">⇄</button>
+          </div>
+        </div>
+
+        <!-- Estado Supabase -->
+        <div class="sidebar-block">
+          <div class="status-block">
+            <span id="statusDot" class="status-dot"></span>
+            <span id="statusText" class="status-text">Configurar Supabase</span>
+          </div>
+        </div>
+
+        <!-- Config Supabase -->
+        <div class="sidebar-block" id="supabaseConfig">
+          <div class="block-title">Conexión Supabase</div>
+          <label>URL del proyecto</label>
+          <input id="supabaseUrl" type="text" placeholder="https://xxx.supabase.co" />
+          <label style="margin-top:10px">Anon Key</label>
+          <input id="supabaseKey" type="text" placeholder="eyJhbGciO..." />
+          <button id="connectBtn" class="btn btn-primary btn-full" style="margin-top:12px">Conectar</button>
+        </div>
+
+        <!-- Filtros -->
+        <div class="sidebar-block" id="filtersBlock">
+          <div class="block-title">Filtrar tarjetas</div>
+          <div class="filter-group">
+            <button class="filter-chip active" data-filter="all">Todas</button>
+            <button class="filter-chip" data-filter="critical">🔴 Crítico</button>
+            <button class="filter-chip" data-filter="high">🟠 Urgente</button>
+            <button class="filter-chip" data-filter="normal">🔵 Normal</button>
+            <button class="filter-chip" data-filter="info">⚪ Info</button>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="sidebar-block">
+          <div class="block-title">Resumen</div>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-num" id="statTotal">0</div>
+              <div class="stat-label">Tarjetas</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-num" id="statPending">0</div>
+              <div class="stat-label">Pendientes</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-num" id="statDone">0</div>
+              <div class="stat-label">Listas</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-num critical" id="statCritical">0</div>
+              <div class="stat-label">Críticas</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-block muted small">
+          Los datos se sincronizan en tiempo real con todos los operarios conectados.
+        </div>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- ── MAIN ───────────────────────────────── -->
+    <main class="main">
+
+      <!-- Topbar -->
+      <div class="topbar no-print">
+        <div class="topbar-left">
+          <button class="btn btn-secondary sidebar-toggle" id="sidebarToggle">☰ Panel</button>
+          <div>
+            <h2>Tablero de Operaciones</h2>
+            <p id="topbarDate">Cargando...</p>
+          </div>
+        </div>
+        <div class="actions" id="adminActions">
+          <button id="newCardBtn" class="btn btn-primary admin-only">+ Nueva tarjeta</button>
+          <button id="chatToggleBtn" class="btn btn-secondary">💬 Chat</button>
+        </div>
+      </div>
+
+      <!-- Área principal: tarjetas + chat -->
+      <div class="workspace">
+
+        <!-- Columna de tarjetas -->
+        <div class="cards-area">
+          <div id="cardsGrid" class="cards-grid">
+            <!-- Cards generadas por JS -->
+          </div>
+          <div id="emptyState" class="empty-state" style="display:none">
+            <div class="empty-icon">📋</div>
+            <p>No hay tarjetas activas.<br>El admin puede crear una nueva indicación.</p>
+          </div>
+        </div>
+
+        <!-- Chat lateral -->
+        <aside class="chat-panel" id="chatPanel">
+          <div class="chat-header">
+            <span>💬 Comunicaciones</span>
+            <button class="chat-close-btn" id="chatCloseBtn">✕</button>
+          </div>
+          <div class="chat-messages" id="chatMessages">
+            <!-- Mensajes -->
+          </div>
+          <div class="chat-input-area">
+            <input id="chatInput" type="text" placeholder="Escribir mensaje..." maxlength="300" />
+            <button id="chatSendBtn" class="btn btn-primary">→</button>
+          </div>
+          <div class="chat-name-area">
+            <input id="chatName" type="text" placeholder="Tu nombre" maxlength="30" />
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <!-- ── MODAL NUEVA/EDITAR TARJETA ──────────── -->
+  <div id="cardModal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modalTitle">Nueva tarjeta</h3>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <input id="hidden-id" type="hidden" />
+
+        <label>Título *</label>
+        <input id="cardTitle" type="text" placeholder="Ej. Limpiar hall de entrada" />
+
+        <label>Descripción / Indicación</label>
+        <textarea id="cardDesc" rows="3" placeholder="Detalle de la tarea, instrucciones específicas..."></textarea>
+
+        <div class="form-row">
+          <div class="form-col">
+            <label>Dirigido a</label>
+            <input id="cardTo" type="text" placeholder="Ej. María G., Equipo A" />
+          </div>
+          <div class="form-col">
+            <label>Urgencia</label>
+            <select id="cardUrgency">
+              <option value="info">⚪ Informativo</option>
+              <option value="normal" selected>🔵 Normal</option>
+              <option value="high">🟠 Urgente</option>
+              <option value="critical">🔴 Crítico</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-col">
+            <label>Sector / Ubicación</label>
+            <input id="cardSector" type="text" placeholder="Ej. Piso 3, Baños" />
+          </div>
+          <div class="form-col">
+            <label>Fecha límite</label>
+            <input id="cardDeadline" type="datetime-local" />
+          </div>
+        </div>
+
+        <label>Estado</label>
+        <select id="cardStatus">
+          <option value="pending">⏳ Pendiente</option>
+          <option value="inprogress">🔄 En progreso</option>
+          <option value="done">✅ Completada</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button id="deleteCardBtn" class="btn btn-danger" style="display:none">Eliminar</button>
+        <button id="cancelModalBtn" class="btn btn-ghost">Cancelar</button>
+        <button id="saveCardBtn" class="btn btn-primary">Guardar tarjeta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="ops-app.js"></script>
+</body>
+</html>
