@@ -378,9 +378,39 @@ body {
 .status-inprogress { background: #dbeafe; color: #1e40af; }
 .status-done       { background: #dcfce7; color: #15803d; }
 
+.status-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+}
+.status-control-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.operator-status-select {
+  width: 100%;
+  border: 1px solid #cfd8e3;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+.operator-status-select:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
 /* Separador inferior de la card */
 .card-footer {
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 10px;
   margin-top: 12px; padding-top: 10px;
   border-top: 1px solid rgba(0,0,0,.07);
 }
@@ -490,6 +520,12 @@ body {
   max-height: 90vh;
   overflow-y: auto;
 }
+.auth-box { max-width: 420px; }
+.auth-copy {
+  margin-bottom: 4px;
+  color: var(--muted);
+  line-height: 1.5;
+}
 @keyframes modalIn { from { opacity: 0; transform: translateY(20px) scale(.97); } to { opacity: 1; transform: none; } }
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -507,6 +543,7 @@ body {
 }
 .modal-body label { font-size: 13px; font-weight: 600; color: var(--muted); display: block; margin-bottom: 5px; }
 .modal-body input[type="text"],
+.modal-body input[type="password"],
 .modal-body input[type="datetime-local"],
 .modal-body textarea,
 .modal-body select {
@@ -563,6 +600,11 @@ body {
   .workspace { flex-direction: column; height: auto; overflow: visible; }
   .cards-area { padding: 14px; overflow: visible; }
   .cards-grid { grid-template-columns: 1fr; }
+
+  .card-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
 
   .chat-panel {
     width: 100%;

@@ -8,6 +8,7 @@
   // ── PIN DE ADMIN ─────────────────────────────────────────────────
   // Cambiá este valor para establecer tu propia contraseña de admin:
   const ADMIN_PIN = 'Seba02069437892498.';
+  const SESSION_ROLE_KEY = 'ci_role';
 
   // ── ESTADO ──────────────────────────────────────────────────────────
   let supabase = null;
@@ -18,6 +19,7 @@
   let deadlineTimers = [];
   let chatPollInterval = null;
   let lastChatTimestamp = null;
+  let authConfirmHandler = null;
 
   // ── ELEMENTOS DOM ─────────────────────────────────────────────────
   const $ = id => document.getElementById(id);
@@ -48,6 +50,7 @@
   const chatInput       = $('chatInput');
   const chatSendBtn     = $('chatSendBtn');
   const chatName        = $('chatName');
+  const backHomeBtn     = $('backHomeBtn');
   const cardModal       = $('cardModal');
   const modalTitle      = $('modalTitle');
   const modalClose      = $('modalClose');
@@ -61,6 +64,13 @@
   const statCritical    = $('statCritical');
   const filterChips     = document.querySelectorAll('.filter-chip');
   const adminOnlyEls    = document.querySelectorAll('.admin-only');
+  const authModal       = $('authModal');
+  const authModalTitle  = $('authModalTitle');
+  const authModalText   = $('authModalText');
+  const authPassword    = $('authPassword');
+  const authConfirmBtn  = $('authConfirmBtn');
+  const authCancelBtn   = $('authCancelBtn');
+  const authModalClose  = $('authModalClose');
 
   // ── INIT ─────────────────────────────────────────────────────────
   function init() {
@@ -70,6 +80,8 @@
     const savedUrl  = localStorage.getItem('ci_sb_url')   || '';
     const savedKey  = localStorage.getItem('ci_sb_key')   || '';
     const savedName = localStorage.getItem('ci_chat_name') || '';
+    const savedRole = localStorage.getItem(SESSION_ROLE_KEY);
+
     if (savedUrl)  supabaseUrlIn.value = savedUrl;
     if (savedKey)  supabaseKeyIn.value = savedKey;
     if (savedName) chatName.value = savedName;
@@ -77,6 +89,12 @@
     chatName.addEventListener('change', () => {
       localStorage.setItem('ci_chat_name', chatName.value.trim());
     });
+
+    bindAuthModal();
+
+    if (savedRole === 'admin' || savedRole === 'operario') {
+      startApp(savedRole, { preserveSession: true });
+    }
   }
 
   function updateClock() {
@@ -87,19 +105,21 @@
 
   // ── LOGIN / ROL ───────────────────────────────────────────────────
   loginAdminBtn.addEventListener('click', () => {
-    const pin = prompt('Ingresá el PIN de administrador:');
-    if (pin === null) return;
-    if (pin.trim() === ADMIN_PIN) {
-      startApp('admin');
-    } else {
-      alert('PIN incorrecto. Intentá de nuevo.');
-    }
+    askAdminPassword({
+      title: 'Acceso administrador',
+      text: 'Ingresá la contraseña de administrador para entrar al panel.',
+      confirmText: 'Ingresar',
+      onSuccess: () => startApp('admin')
+    });
   });
 
   loginOpBtn.addEventListener('click', () => startApp('operario'));
 
-  function startApp(selectedRole) {
+  function startApp(selectedRole, options = {}) {
     role = selectedRole;
+    if (!options.preserveSession) {
+      localStorage.setItem(SESSION_ROLE_KEY, selectedRole);
+    }
     loginOverlay.style.display = 'none';
     appShell.style.display = '';
     applyRole();
@@ -111,11 +131,12 @@
       roleIcon.textContent = '🔑';
       roleLabel.textContent = 'Admin';
       roleSwitchBtn.style.display = '';
-      roleSwitchBtn.title = 'Ver como operario';
+      roleSwitchBtn.title = 'Cambiar a vista operario';
     } else {
       roleIcon.textContent = '👷';
       roleLabel.textContent = 'Operario';
-      roleSwitchBtn.style.display = 'none';
+      roleSwitchBtn.style.display = '';
+      roleSwitchBtn.title = 'Cambiar a vista admin';
     }
     adminOnlyEls.forEach(el => {
       el.style.display = role === 'admin' ? '' : 'none';
@@ -123,23 +144,81 @@
     renderCards();
   }
 
-  // Admin puede previsualizar vista operario y volver con PIN
   roleSwitchBtn.addEventListener('click', () => {
     if (role === 'admin') {
-      if (confirm('¿Cambiar a vista Operario? Para volver a Admin necesitarás el PIN.')) {
-        role = 'operario';
-        applyRole();
-      }
-    } else {
-      const pin = prompt('PIN de administrador:');
-      if (pin !== null && pin.trim() === ADMIN_PIN) {
-        role = 'admin';
-        applyRole();
-      } else if (pin !== null) {
-        alert('PIN incorrecto.');
-      }
+      role = 'operario';
+      localStorage.setItem(SESSION_ROLE_KEY, 'operario');
+      applyRole();
+      return;
     }
+
+    askAdminPassword({
+      title: 'Cambiar a Admin',
+      text: 'Ingresá la contraseña de administrador para acceder al panel de creación y edición.',
+      confirmText: 'Acceder',
+      onSuccess: () => {
+        role = 'admin';
+        localStorage.setItem(SESSION_ROLE_KEY, 'admin');
+        applyRole();
+      }
+    });
   });
+
+  backHomeBtn.addEventListener('click', goToHome);
+
+  function goToHome() {
+    role = null;
+    localStorage.removeItem(SESSION_ROLE_KEY);
+    loginOverlay.style.display = 'flex';
+    appShell.style.display = 'none';
+    closeModal();
+    closeAuthModal();
+    closeSidebar();
+  }
+
+  function bindAuthModal() {
+    authConfirmBtn.addEventListener('click', handleAuthConfirm);
+    authCancelBtn.addEventListener('click', closeAuthModal);
+    authModalClose.addEventListener('click', closeAuthModal);
+    authModal.addEventListener('click', e => {
+      if (e.target === authModal) closeAuthModal();
+    });
+    authPassword.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAuthConfirm();
+      }
+      if (e.key === 'Escape') closeAuthModal();
+    });
+  }
+
+  function askAdminPassword({ title, text, confirmText, onSuccess }) {
+    authConfirmHandler = onSuccess;
+    authModalTitle.textContent = title || 'Acceso administrador';
+    authModalText.textContent = text || 'Ingresá la contraseña de administrador para continuar.';
+    authConfirmBtn.textContent = confirmText || 'Ingresar';
+    authPassword.value = '';
+    authModal.style.display = 'flex';
+    setTimeout(() => authPassword.focus(), 50);
+  }
+
+  function handleAuthConfirm() {
+    const pin = authPassword.value;
+    if (pin === ADMIN_PIN) {
+      const handler = authConfirmHandler;
+      closeAuthModal();
+      if (typeof handler === 'function') handler();
+    } else {
+      alert('Contraseña incorrecta.');
+      authPassword.select();
+    }
+  }
+
+  function closeAuthModal() {
+    authModal.style.display = 'none';
+    authPassword.value = '';
+    authConfirmHandler = null;
+  }
 
   // ── SUPABASE ──────────────────────────────────────────────────────
   connectBtn.addEventListener('click', connectSupabase);
@@ -195,7 +274,6 @@
   }
 
   // ── CHAT: POLLING cada 3s ─────────────────────────────────────────
-  // Más confiable que realtime para tablas que no tienen replicación activa
   function startChatPolling() {
     if (chatPollInterval) clearInterval(chatPollInterval);
     chatPollInterval = setInterval(pollNewMessages, 3000);
@@ -313,13 +391,29 @@
           </div>` : ''}
       </div>
       <div class="card-footer">
-        <span class="status-badge ${statusClass}">${statusLabel}</span>
+        ${isAdmin
+          ? `<span class="status-badge ${statusClass}">${statusLabel}</span>`
+          : `<label class="status-control">
+              <span class="status-control-label">Estado</span>
+              <select class="operator-status-select" data-card-id="${card.id}" aria-label="Cambiar estado de la tarjeta">
+                <option value="pending" ${card.status === 'pending' ? 'selected' : ''}>⏳ Pendiente</option>
+                <option value="inprogress" ${card.status === 'inprogress' ? 'selected' : ''}>🔄 En proceso</option>
+                <option value="done" ${card.status === 'done' ? 'selected' : ''}>✅ Completada</option>
+              </select>
+            </label>`}
         <span style="font-size:11px;color:#9ca3af">${formatRelative(card.created_at)}</span>
       </div>
     `;
 
     const editBtn = el.querySelector('.edit-btn');
     if (editBtn) editBtn.addEventListener('click', () => openModal(card));
+
+    const statusSelect = el.querySelector('.operator-status-select');
+    if (statusSelect) {
+      statusSelect.addEventListener('change', async e => {
+        await updateCardStatus(card.id, e.target.value, e.target);
+      });
+    }
 
     if (card.deadline) {
       updateDeadline(card.id, card.deadline);
@@ -328,6 +422,34 @@
     }
 
     return el;
+  }
+
+  async function updateCardStatus(cardId, newStatus, selectEl) {
+    const originalValue = cards.find(c => c.id === cardId)?.status || 'pending';
+    if (selectEl) selectEl.disabled = true;
+
+    try {
+      if (supabase) {
+        const { error } = await supabase
+          .from('ops_cards')
+          .update({ status: newStatus })
+          .eq('id', cardId);
+        if (error) throw error;
+        await fetchCards();
+      } else {
+        const idx = cards.findIndex(c => c.id === cardId);
+        if (idx >= 0) cards[idx].status = newStatus;
+        saveLocalCards();
+        renderCards();
+        updateStats();
+      }
+    } catch (e) {
+      console.error(e);
+      alert('No se pudo actualizar el estado: ' + e.message);
+      if (selectEl) selectEl.value = originalValue;
+    } finally {
+      if (selectEl) selectEl.disabled = false;
+    }
   }
 
   function updateDeadline(id, deadlineStr) {
@@ -434,9 +556,11 @@
     try {
       if (supabase) {
         if (editingCardId) {
-          await supabase.from('ops_cards').update(payload).eq('id', editingCardId);
+          const { error } = await supabase.from('ops_cards').update(payload).eq('id', editingCardId);
+          if (error) throw error;
         } else {
-          await supabase.from('ops_cards').insert(payload);
+          const { error } = await supabase.from('ops_cards').insert(payload);
+          if (error) throw error;
         }
         await fetchCards();
       } else {
@@ -462,7 +586,8 @@
 
   async function deleteCard(id) {
     if (supabase) {
-      await supabase.from('ops_cards').delete().eq('id', id);
+      const { error } = await supabase.from('ops_cards').delete().eq('id', id);
+      if (error) throw error;
       await fetchCards();
     } else {
       cards = cards.filter(c => c.id !== id);
@@ -495,9 +620,8 @@
       if (error) {
         console.error('Error al enviar mensaje:', error);
         alert('No se pudo enviar el mensaje: ' + error.message);
-        chatInput.value = text; // restaurar si falla
+        chatInput.value = text;
       }
-      // El polling va a levantar el mensaje en máx 3 segundos
     } else {
       appendChatMessage({ ...msg, created_at: new Date().toISOString() });
     }
