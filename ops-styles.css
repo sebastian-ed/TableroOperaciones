@@ -503,6 +503,8 @@ body {
   background: #fafbfc;
 }
 
+#authModal { z-index: 1200; }
+
 /* ── MODAL ────────────────────────────────────── */
 .modal-overlay {
   position: fixed; inset: 0;
